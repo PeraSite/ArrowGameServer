@@ -10,10 +10,10 @@ internal static class Program {
 		Console.OutputEncoding = Encoding.Unicode;
 
 		// 환경변수 가져오기
-		var listenPort = int.Parse(GetEnvironmentVariable("LISTEN_PORT"));
+		var tcpPort = int.Parse(GetEnvironmentVariable("TCP_PORT"));
 
 		// 서버 시작
-		using GameServer server = new GameServer(listenPort);
+		using GameServer server = new GameServer(tcpPort);
 		server.Start();
 	}
 
