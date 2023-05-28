@@ -15,7 +15,7 @@ namespace ArrowGame.Common {
 		public static IPacket CreatePacket(this PacketType type, BinaryReader reader) {
 			return type switch {
 				PacketType.ClientPing => new ClientPingPacket(),
-				PacketType.ServerPong => new ServerPongPacket(),
+				PacketType.ServerPong => new ServerPongPacket(reader),
 
 				PacketType.PlayerInput => new PlayerInputPacket(reader),
 

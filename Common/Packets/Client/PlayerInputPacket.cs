@@ -1,7 +1,7 @@
 ﻿using System.IO;
 
 namespace ArrowGame.Common.Packets.Client {
-	public readonly struct PlayerInputPacket : IPacket {
+	public class PlayerInputPacket : IPacket {
 		public PacketType Type => PacketType.PlayerInput;
 
 		public int PlayerId { get; }
