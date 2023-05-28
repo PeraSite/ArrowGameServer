@@ -3,7 +3,7 @@ namespace ArrowGame.Common {
 		public float HorizontalMovement;
 
 		public override string ToString() {
-			return $"{nameof(HorizontalMovement)}: {HorizontalMovement}";
+			return $"{nameof(InputState)} {{ {nameof(HorizontalMovement)}: {HorizontalMovement} }}";
 		}
 	}
 }

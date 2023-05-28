@@ -1,23 +1,31 @@
 ﻿using System.IO;
 
 namespace ArrowGame.Common.Packets.Client {
-	public struct PlayerInputPacket : IPacket {
+	public readonly struct PlayerInputPacket : IPacket {
 		public PacketType Type => PacketType.PlayerInput;
 
-		public InputState State;
+		public int PlayerId { get; }
+		public InputState State { get; }
 
-		public PlayerInputPacket(InputState state) {
+		public PlayerInputPacket(int playerId, InputState state) {
+			PlayerId = playerId;
 			State = state;
 		}
 
 		public PlayerInputPacket(BinaryReader reader) {
+			PlayerId = reader.ReadInt32();
 			State = new InputState {
 				HorizontalMovement = reader.ReadSingle()
 			};
 		}
 
 		public void Serialize(BinaryWriter writer) {
+			writer.Write(PlayerId);
 			writer.Write(State.HorizontalMovement);
+		}
+
+		public override string ToString() {
+			return $"{nameof(PlayerInputPacket)} {{ {nameof(PlayerId)}: {PlayerId}, {nameof(State)}: {State} }}";
 		}
 	}
 }
