@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -22,6 +23,7 @@ public class GameServer : IDisposable {
 		_receivedPacketQueue = new ConcurrentQueue<(PlayerConnection playerConnection, IPacket packet)>();
 	}
 
+#region Basic client handling
 	public void Start() {
 		Console.WriteLine("[TCP 서버] 서버 시작");
 		_tcpServer.Start();
@@ -61,21 +63,6 @@ public class GameServer : IDisposable {
 			Console.WriteLine(e);
 			throw;
 		}
-	}
-
-	private void HandlePacket(IPacket basePacket, PlayerConnection playerConnection) {
-		switch (basePacket) {
-			case ClientPingPacket packet: {
-				HandleClientPingPacket(playerConnection, packet);
-				break;
-			}
-			default:
-				throw new ArgumentOutOfRangeException(nameof(basePacket));
-		}
-	}
-
-	private void HandleClientPingPacket(PlayerConnection playerConnection, ClientPingPacket packet) {
-		playerConnection.SendPacket(new ServerPongPacket());
 	}
 
 	public void Dispose() {
@@ -124,5 +111,41 @@ public class GameServer : IDisposable {
 		playerConnection.Dispose();
 
 		Console.WriteLine("[TCP 서버] 클라이언트 종료: IP 주소={0}, 포트 번호={1}", address.Address, address.Port);
+	}
+  #endregion
+
+#region Util Functions
+	private void Broadcast(IPacket packet) {
+		foreach (var playerConnection in _playerConnections)
+			playerConnection.SendPacket(packet);
+	}
+
+	private void Broadcast(IEnumerable<PlayerConnection> targets, IPacket packet) {
+		foreach (var playerConnection in targets)
+			playerConnection.SendPacket(packet);
+	}
+#endregion
+
+	private void HandlePacket(IPacket basePacket, PlayerConnection playerConnection) {
+		switch (basePacket) {
+			case ClientPingPacket packet: {
+				HandleClientPingPacket(playerConnection, packet);
+				break;
+			}
+			case PlayerInputPacket packet: {
+				HandlePlayerInputPacket(playerConnection, packet);
+				break;
+			}
+			default:
+				throw new ArgumentOutOfRangeException(nameof(basePacket));
+		}
+	}
+
+	private void HandleClientPingPacket(PlayerConnection playerConnection, ClientPingPacket packet) {
+		playerConnection.SendPacket(new ServerPongPacket());
+	}
+
+	private void HandlePlayerInputPacket(PlayerConnection playerConnection, PlayerInputPacket packet) {
+		Broadcast(_playerConnections.Where(x => x != playerConnection), packet);
 	}
 }
