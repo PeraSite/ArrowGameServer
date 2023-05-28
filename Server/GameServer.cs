@@ -142,7 +142,8 @@ public class GameServer : IDisposable {
 	}
 
 	private void HandleClientPingPacket(PlayerConnection playerConnection, ClientPingPacket packet) {
-		playerConnection.SendPacket(new ServerPongPacket());
+		var playerId = _playerConnections.Count;
+		playerConnection.SendPacket(new ServerPongPacket(playerId));
 	}
 
 	private void HandlePlayerInputPacket(PlayerConnection playerConnection, PlayerInputPacket packet) {
