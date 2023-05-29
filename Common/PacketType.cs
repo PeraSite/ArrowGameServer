@@ -9,6 +9,11 @@ namespace ArrowGame.Common {
 		ServerPong,
 
 		PlayerInput,
+
+		ServerRoomStatus,
+		ServerAssignPlayerId,
+		ServerRoomJoin,
+		ServerRoomQuit,
 	}
 
 	public static class PacketTypes {
@@ -19,6 +24,10 @@ namespace ArrowGame.Common {
 
 				PacketType.PlayerInput => new PlayerInputPacket(reader),
 
+				PacketType.ServerRoomStatus => new ServerRoomStatusPacket(reader),
+				PacketType.ServerAssignPlayerId => new ServerAssignPlayerIdPacket(reader),
+				PacketType.ServerRoomJoin => new ServerRoomJoinPacket(reader),
+				PacketType.ServerRoomQuit => new ServerRoomQuitPacket(reader),
 				_ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
 			};
 		}
