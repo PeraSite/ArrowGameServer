@@ -17,5 +17,9 @@ namespace ArrowGame.Common.Packets.Server {
 		public void Serialize(BinaryWriter writer) {
 			writer.Write(PlayerId);
 		}
+
+		public override string ToString() {
+			return $"{nameof(ServerRoomJoinPacket)} {{ {nameof(PlayerId)}: {PlayerId} }}";
+		}
 	}
 }
