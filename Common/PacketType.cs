@@ -6,7 +6,6 @@ using ArrowGame.Common.Packets.Server;
 namespace ArrowGame.Common {
 	public enum PacketType : byte {
 		ClientPing,
-		ServerPong,
 
 		PlayerInput,
 
@@ -20,7 +19,6 @@ namespace ArrowGame.Common {
 		public static IPacket CreatePacket(this PacketType type, BinaryReader reader) {
 			return type switch {
 				PacketType.ClientPing => new ClientPingPacket(),
-				PacketType.ServerPong => new ServerPongPacket(reader),
 
 				PacketType.PlayerInput => new PlayerInputPacket(reader),
 
