@@ -8,19 +8,21 @@ using System.Net.Sockets;
 using System.Threading;
 using ArrowGame.Common;
 using ArrowGame.Common.Packets.Client;
-using ArrowGame.Common.Packets.Server;
 
 namespace ArrowGame.Server;
 
 public class GameServer : IDisposable {
+	public List<PlayerConnection> PlayerConnections;
+
 	private readonly TcpListener _tcpServer;
-	private readonly List<PlayerConnection> _playerConnections;
 	private readonly ConcurrentQueue<(PlayerConnection playerConnection, IPacket packet)> _receivedPacketQueue;
+	private readonly List<Room> _rooms;
 
 	public GameServer(int port) {
 		_tcpServer = new TcpListener(IPAddress.Any, port);
-		_playerConnections = new List<PlayerConnection>();
+		PlayerConnections = new List<PlayerConnection>();
 		_receivedPacketQueue = new ConcurrentQueue<(PlayerConnection playerConnection, IPacket packet)>();
+		_rooms = new List<Room>();
 	}
 
 #region Basic client handling
@@ -75,7 +77,7 @@ public class GameServer : IDisposable {
 	private void HandleNewClient(TcpClient client) {
 		// PlayerConnection 생성
 		var playerConnection = new PlayerConnection(client);
-		_playerConnections.Add(playerConnection);
+		PlayerConnections.Add(playerConnection);
 		Console.WriteLine($"[TCP 서버] 클라이언트 접속: {playerConnection}");
 
 		// 패킷 읽기
@@ -104,8 +106,11 @@ public class GameServer : IDisposable {
 	private void HandleClientQuit(PlayerConnection playerConnection) {
 		var address = playerConnection.IP;
 
+		// 접속하고 있던 방 나가기
+		QuitRoom(playerConnection);
+
 		// PlayerConnection Dictionary 에서 삭제
-		_playerConnections.Remove(playerConnection);
+		PlayerConnections.Remove(playerConnection);
 
 		// 클라이언트 닫기
 		playerConnection.Dispose();
@@ -116,13 +121,47 @@ public class GameServer : IDisposable {
 
 #region Util Functions
 	private void Broadcast(IPacket packet) {
-		foreach (var playerConnection in _playerConnections)
+		foreach (var playerConnection in PlayerConnections)
 			playerConnection.SendPacket(packet);
 	}
 
 	private void Broadcast(IEnumerable<PlayerConnection> targets, IPacket packet) {
 		foreach (var playerConnection in targets)
 			playerConnection.SendPacket(packet);
+	}
+#endregion
+
+#region Matchmaking
+	private void QuitRoom(PlayerConnection playerConnection) {
+		if (_rooms.First(x => x.PlayerConnections.Contains(playerConnection)) is not { } room)
+			return;
+
+		room.RemovePlayer(playerConnection);
+		if (room.PlayerConnections.Count == 0) {
+			Console.WriteLine($"[TCP 서버] 방 {room.Id}이 비어서 삭제됨");
+			DeleteRoom(room);
+		}
+	}
+
+	private Room GetAvailableOrCreateRoom() {
+		// 빈 방 찾기
+		var availableRoom = _rooms.FirstOrDefault(x => x.IsAvailable());
+
+		// 빈 방이 있으면 반환
+		if (availableRoom != null) return availableRoom;
+
+		// 없으면 새로 생성 후 추가
+		var id = _rooms.Count;
+		var newRoom = new Room(this, id);
+		_rooms.Add(newRoom);
+
+		Console.WriteLine($"[TCP 서버] 방 생성 - {newRoom}");
+		return newRoom;
+	}
+
+	private void DeleteRoom(Room room) {
+		Console.WriteLine($"[TCP 서버] 방 삭제: {room}");
+		_rooms.Remove(room);
 	}
 #endregion
 
@@ -142,11 +181,15 @@ public class GameServer : IDisposable {
 	}
 
 	private void HandleClientPingPacket(PlayerConnection playerConnection, ClientPingPacket packet) {
-		var playerId = _playerConnections.Count;
-		playerConnection.SendPacket(new ServerPongPacket(playerId));
+		var room = GetAvailableOrCreateRoom();
+		room.AddPlayer(playerConnection);
+
+		if (room.IsFull()) {
+			room.StartGame();
+		}
 	}
 
 	private void HandlePlayerInputPacket(PlayerConnection playerConnection, PlayerInputPacket packet) {
-		Broadcast(_playerConnections.Where(x => x != playerConnection), packet);
+		Broadcast(PlayerConnections.Where(x => x != playerConnection), packet);
 	}
 }
