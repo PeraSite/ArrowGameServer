@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.Threading;
 using ArrowGame.Common;
 using ArrowGame.Common.Packets.Client;
+using ArrowGame.Common.Packets.Server;
 
 namespace ArrowGame.Server;
 
@@ -133,11 +134,12 @@ public class GameServer : IDisposable {
 
 #region Matchmaking
 	private void QuitRoom(PlayerConnection playerConnection) {
-		if (_rooms.First(x => x.PlayerConnections.Contains(playerConnection)) is not { } room)
-			return;
+		var room = _rooms.FirstOrDefault(x => x.PlayerIds.ContainsKey(playerConnection));
+
+		if (room == null) return;
 
 		room.RemovePlayer(playerConnection);
-		if (room.PlayerConnections.Count == 0) {
+		if (room.IsEmpty()) {
 			Console.WriteLine($"[TCP 서버] 방 {room.Id}이 비어서 삭제됨");
 			DeleteRoom(room);
 		}
@@ -152,7 +154,7 @@ public class GameServer : IDisposable {
 
 		// 없으면 새로 생성 후 추가
 		var id = _rooms.Count;
-		var newRoom = new Room(this, id);
+		var newRoom = new Room(id);
 		_rooms.Add(newRoom);
 
 		Console.WriteLine($"[TCP 서버] 방 생성 - {newRoom}");
@@ -182,11 +184,10 @@ public class GameServer : IDisposable {
 
 	private void HandleClientPingPacket(PlayerConnection playerConnection, ClientPingPacket packet) {
 		var room = GetAvailableOrCreateRoom();
-		room.AddPlayer(playerConnection);
 
-		if (room.IsFull()) {
-			room.StartGame();
-		}
+		var playerId = room.GetNewPlayerId();
+		room.AddPlayer(playerConnection, playerId);
+		playerConnection.SendPacket(new ServerAssignPlayerIdPacket(playerId));
 	}
 
 	private void HandlePlayerInputPacket(PlayerConnection playerConnection, PlayerInputPacket packet) {

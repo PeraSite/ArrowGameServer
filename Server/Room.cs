@@ -7,11 +7,8 @@ namespace ArrowGame.Server;
 
 public class Room {
 	private const int MAX_PLAYER = 2;
-	private GameServer _server;
-	private RoomState _state;
 
 	public int Id { get; }
-
 	public RoomState State {
 		get => _state;
 		private set {
@@ -19,42 +16,67 @@ public class Room {
 			BroadcastState();
 		}
 	}
-	public List<PlayerConnection> PlayerConnections { get; private set; }
+	public Dictionary<PlayerConnection, int> PlayerIds { get; private set; }
 
-	public Room(GameServer server, int id) {
-		_server = server;
+	private RoomState _state;
+	private int _lastId = 0;
+
+	public Room(int id) {
 		Id = id;
-		PlayerConnections = new List<PlayerConnection>();
+		PlayerIds = new Dictionary<PlayerConnection, int>();
 		_state = RoomState.Waiting;
 	}
 
-	public bool IsAvailable() => PlayerConnections.Count < MAX_PLAYER && State == RoomState.Waiting;
-	public bool IsFull() => PlayerConnections.Count == MAX_PLAYER;
+	public bool IsEmpty() => PlayerIds.Count == 0;
+	public bool IsAvailable() => PlayerIds.Count < MAX_PLAYER && State == RoomState.Waiting;
+	public bool IsFull() => PlayerIds.Count == MAX_PLAYER;
+	public int GetNewPlayerId() => _lastId++;
 
 	public override string ToString() {
-		return $"Room {Id} ({PlayerConnections.Count}/{MAX_PLAYER})";
+		return $"Room {Id} ({PlayerIds.Count}/{MAX_PLAYER})";
 	}
 
-	public void AddPlayer(PlayerConnection playerConnection) {
+	public void AddPlayer(PlayerConnection playerConnection, int playerId) {
 		if (IsFull()) {
 			throw new Exception("Can't add player to full room!");
 		}
-		PlayerConnections.Add(playerConnection);
+		BroadcastPacket(new ServerRoomJoinPacket(playerId));
+
+		// 기존에 사람이 있었다면
+		if (PlayerIds.Count > 0) {
+			foreach (var existId in PlayerIds.Values) {
+				playerConnection.SendPacket(new ServerRoomJoinPacket(existId));
+			}
+		}
+
+		PlayerIds[playerConnection] = playerId;
 		BroadcastState();
+
+		if (IsFull()) {
+			StartGame();
+		}
 	}
 
 	public void RemovePlayer(PlayerConnection playerConnection) {
-		PlayerConnections.Remove(playerConnection);
+		var id = PlayerIds[playerConnection];
+		PlayerIds.Remove(playerConnection);
+		BroadcastPacket(new ServerRoomQuitPacket(id));
 		BroadcastState();
+
+		if (!IsFull()) {
+			State = RoomState.Waiting;
+		}
 	}
 
 	public void StartGame() {
 		State = RoomState.Playing;
 	}
 
-	public void BroadcastState() => BroadcastPacket(new ServerRoomStatusPacket(Id, State, PlayerConnections.Count));
+	private void BroadcastState() => BroadcastPacket(new ServerRoomStatusPacket(Id, State, PlayerIds.Count));
 
-	public void BroadcastPacket(IPacket packet) {
-		PlayerConnections.ForEach(x => x.SendPacket(packet));
+	private void BroadcastPacket(IPacket packet) {
+		foreach (PlayerConnection connection in PlayerIds.Keys) {
+			connection.SendPacket(packet);
+		}
 	}
 }
