@@ -14,7 +14,8 @@ namespace ArrowGame.Common {
 		ServerRoomJoin,
 		ServerRoomQuit,
 
-		ServerArrowSpawn
+		ServerArrowSpawn,
+		ClientArrowHit
 	}
 
 	public static class PacketTypes {
@@ -28,7 +29,9 @@ namespace ArrowGame.Common {
 				PacketType.ServerAssignPlayerId => new ServerAssignPlayerIdPacket(reader),
 				PacketType.ServerRoomJoin => new ServerRoomJoinPacket(reader),
 				PacketType.ServerRoomQuit => new ServerRoomQuitPacket(reader),
+
 				PacketType.ServerArrowSpawn => new ServerArrowSpawnPacket(reader),
+				PacketType.ClientArrowHit => new ClientArrowHitPacket(reader),
 				_ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
 			};
 		}
