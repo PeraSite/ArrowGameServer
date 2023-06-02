@@ -10,10 +10,11 @@ public class Room {
 	private const int MAX_PLAYER = 1;
 	private const int ARROW_SPAWN_DELAY = 1000;
 	private const float ARROW_SPAWN_MIN_X = -8f;
-	private const float ARROW_SPAWN_MAX_X = -8f;
+	private const float ARROW_SPAWN_MAX_X = 8f;
 	private const float ARROW_SPAWN_MIN_SPEED = 2.5f;
 	private const float ARROW_SPAWN_MAX_SPEED = 6f;
-
+	private const int ARROW_DAMAGE = 10;
+	private const int DEFAULT_HEALTH = 100;
 
 	public int Id { get; }
 	public RoomState State {
@@ -24,14 +25,16 @@ public class Room {
 		}
 	}
 	public Dictionary<PlayerConnection, int> PlayerIds { get; private set; }
+	public Dictionary<int, int> PlayerHP { get; private set; }
 
 	private RoomState _state;
-	private int _lastId = 0;
+	private int _lastId;
 	private Thread? _roomThread;
 
 	public Room(int id) {
 		Id = id;
 		PlayerIds = new Dictionary<PlayerConnection, int>();
+		PlayerHP = new Dictionary<int, int>();
 		_state = RoomState.Waiting;
 	}
 
@@ -58,6 +61,7 @@ public class Room {
 		}
 
 		PlayerIds[playerConnection] = playerId;
+		PlayerHP[playerId] = DEFAULT_HEALTH;
 		BroadcastState();
 
 		if (IsFull()) {
@@ -106,11 +110,20 @@ public class Room {
 		_roomThread = null;
 	}
 
-	private void BroadcastState() => BroadcastPacket(new ServerRoomStatusPacket(Id, State, PlayerIds.Count));
+	private void BroadcastState() => BroadcastPacket(new ServerRoomStatusPacket(Id, State, PlayerIds.Count, PlayerHP));
 
 	private void BroadcastPacket(IPacket packet) {
 		foreach (PlayerConnection connection in PlayerIds.Keys) {
 			connection.SendPacket(packet);
+		}
+	}
+	public void HitByArrow(int playerId) {
+		PlayerHP[playerId] -= ARROW_DAMAGE;
+		BroadcastState();
+
+		if (PlayerHP[playerId] <= 0) {
+			// BroadcastPacket(new ServerPlayerDiePacket(playerId));
+			StopGame();
 		}
 	}
 }

@@ -1,4 +1,6 @@
-﻿using System.IO;
+﻿using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 
 namespace ArrowGame.Common.Packets.Server {
 	public class ServerRoomStatusPacket : IPacket {
@@ -6,28 +8,46 @@ namespace ArrowGame.Common.Packets.Server {
 
 		public int Id;
 		public RoomState State;
-		public int Players;
+		public int PlayerCount;
+		public Dictionary<int, int> PlayerHp;
 
-		public ServerRoomStatusPacket(int id, RoomState state, int players) {
+		public ServerRoomStatusPacket(int id, RoomState state, int playerCount, Dictionary<int, int> playerHp) {
 			Id = id;
 			State = state;
-			Players = players;
+			PlayerCount = playerCount;
+			PlayerHp = playerHp;
 		}
 
 		public ServerRoomStatusPacket(BinaryReader reader) {
 			Id = reader.ReadInt32();
 			State = (RoomState)reader.ReadByte();
-			Players = reader.ReadInt32();
+			PlayerCount = reader.ReadInt32();
+
+			PlayerHp = new Dictionary<int, int>();
+			for (int i = 0; i < PlayerCount; i++) {
+				var playerId = reader.ReadInt32();
+				var playerHp = reader.ReadInt32();
+				PlayerHp.Add(playerId, playerHp);
+			}
 		}
 
 		public void Serialize(BinaryWriter writer) {
 			writer.Write(Id);
 			writer.Write((byte)State);
-			writer.Write(Players);
+			writer.Write(PlayerCount);
+			foreach (var (playerId, playerHp) in PlayerHp) {
+				writer.Write(playerId);
+				writer.Write(playerHp);
+			}
 		}
 
 		public override string ToString() {
-			return $"{nameof(ServerRoomStatusPacket)} {{ {nameof(Id)}: {Id}, {nameof(State)}: {State}, {nameof(Players)}: {Players} }}";
+			var hpStr = string.Join(", ", PlayerHp.Select(x => {
+				var (id, hp) = x;
+				return $"{id}:{hp}";
+			}));
+
+			return $"{nameof(ServerRoomStatusPacket)} {{ {nameof(Id)}: {Id}, {nameof(State)}: {State}, {nameof(PlayerCount)}: {PlayerCount}, {nameof(PlayerHp)}: {hpStr}}}";
 		}
 	}
 }

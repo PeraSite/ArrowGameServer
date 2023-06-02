@@ -177,6 +177,10 @@ public class GameServer : IDisposable {
 				HandlePlayerInputPacket(playerConnection, packet);
 				break;
 			}
+			case ClientArrowHitPacket packet: {
+				HandleClientArrowHitPacket(playerConnection, packet);
+				break;
+			}
 			default:
 				throw new ArgumentOutOfRangeException(nameof(basePacket));
 		}
@@ -192,5 +196,15 @@ public class GameServer : IDisposable {
 
 	private void HandlePlayerInputPacket(PlayerConnection playerConnection, PlayerInputPacket packet) {
 		Broadcast(PlayerConnections.Where(x => x != playerConnection), packet);
+	}
+
+	private void HandleClientArrowHitPacket(PlayerConnection playerConnection, ClientArrowHitPacket packet) {
+		var room = _rooms.FirstOrDefault(x => x.PlayerIds.ContainsKey(playerConnection));
+		if (room == null) {
+			Console.WriteLine($"방이 없는 플레이어 {playerConnection.IP} 가 화살에 맞음");
+			return;
+		}
+
+		room.HitByArrow(packet.PlayerId);
 	}
 }
