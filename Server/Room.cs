@@ -1,12 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using ArrowGame.Common;
 using ArrowGame.Common.Packets.Server;
 
 namespace ArrowGame.Server;
 
 public class Room {
-	private const int MAX_PLAYER = 2;
+	private const int MAX_PLAYER = 1;
+	private const int ARROW_SPAWN_DELAY = 1000;
+	private const float ARROW_SPAWN_MIN_X = -8f;
+	private const float ARROW_SPAWN_MAX_X = -8f;
+	private const float ARROW_SPAWN_MIN_SPEED = 2.5f;
+	private const float ARROW_SPAWN_MAX_SPEED = 6f;
+
 
 	public int Id { get; }
 	public RoomState State {
@@ -20,6 +27,7 @@ public class Room {
 
 	private RoomState _state;
 	private int _lastId = 0;
+	private Thread? _roomThread;
 
 	public Room(int id) {
 		Id = id;
@@ -64,12 +72,38 @@ public class Room {
 		BroadcastState();
 
 		if (!IsFull()) {
-			State = RoomState.Waiting;
+			// 만약 누가 나갔는데 2명이 되지 않는다면(미래 대응) 게임 종료
+			StopGame();
 		}
 	}
 
-	public void StartGame() {
+	private void StartGame() {
 		State = RoomState.Playing;
+
+		_roomThread = new Thread(() => {
+			while (State == RoomState.Playing) {
+				SpawnArrow();
+				Thread.Sleep(ARROW_SPAWN_DELAY);
+			}
+		});
+		_roomThread.Start();
+	}
+
+	private void SpawnArrow() {
+		var x = Random(ARROW_SPAWN_MIN_X, ARROW_SPAWN_MAX_X);
+		var speed = Random(ARROW_SPAWN_MIN_SPEED, ARROW_SPAWN_MAX_SPEED);
+
+		BroadcastPacket(new ServerArrowSpawnPacket(x, speed));
+		Console.WriteLine($"[TCP 서버] Room {Id}: Spawn arrow at {x} with speed {speed}");
+	}
+
+	private static float Random(float min, float max) {
+		return new Random().NextSingle() * (max - min) + min;
+	}
+
+	private void StopGame() {
+		State = RoomState.Waiting;
+		_roomThread = null;
 	}
 
 	private void BroadcastState() => BroadcastPacket(new ServerRoomStatusPacket(Id, State, PlayerIds.Count));
