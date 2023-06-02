@@ -7,7 +7,7 @@ using ArrowGame.Common.Packets.Server;
 namespace ArrowGame.Server;
 
 public class Room {
-	private const int MAX_PLAYER = 1;
+	private const int MAX_PLAYER = 2;
 	private const int ARROW_SPAWN_DELAY = 1000;
 	private const float ARROW_SPAWN_MIN_X = -8f;
 	private const float ARROW_SPAWN_MAX_X = 8f;
@@ -106,7 +106,7 @@ public class Room {
 	}
 
 	private void StopGame() {
-		State = RoomState.Waiting;
+		State = RoomState.Ending;
 		_roomThread = null;
 	}
 
