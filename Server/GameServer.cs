@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using ArrowGame.Common;
+using ArrowGame.Common.Extensions;
 using ArrowGame.Common.Packets.Client;
 using ArrowGame.Common.Packets.Server;
 
@@ -16,11 +17,13 @@ public class GameServer : IDisposable {
 	public List<PlayerConnection> PlayerConnections;
 
 	private readonly TcpListener _tcpServer;
+	private readonly UdpClient _udpClient;
 	private readonly ConcurrentQueue<(PlayerConnection playerConnection, IPacket packet)> _receivedPacketQueue;
 	private readonly List<Room> _rooms;
 
-	public GameServer(int port) {
-		_tcpServer = new TcpListener(IPAddress.Any, port);
+	public GameServer(int tcpPort, int udpPort) {
+		_tcpServer = new TcpListener(IPAddress.Any, tcpPort);
+		_udpClient = new UdpClient(udpPort);
 		PlayerConnections = new List<PlayerConnection>();
 		_receivedPacketQueue = new ConcurrentQueue<(PlayerConnection playerConnection, IPacket packet)>();
 		_rooms = new List<Room>();
@@ -50,6 +53,41 @@ public class GameServer : IDisposable {
 			}
 		});
 		dequeueThread.Start();
+
+		// UDP 서버 Thread
+		var udpServerThread = new Thread(() => {
+			while (true) {
+				try {
+					IPEndPoint remote = new IPEndPoint(IPAddress.Any, 0);
+					var data = _udpClient.Receive(ref remote);
+					using var ms = new MemoryStream(data);
+					using var br = new BinaryReader(ms);
+
+					// 패킷 타입 읽기
+					var packetId = br.ReadByte();
+					var packetType = (PacketType)packetId;
+
+					// UDP 한정, Client ID 읽기
+					var clientId = br.ReadGuid();
+
+					// TCP PlayerConnection 찾기
+					var playerConnection = PlayerConnections.FirstOrDefault(x => x.ClientId == clientId);
+
+					if (playerConnection == null) {
+						continue;
+					}
+
+					var packet = packetType.CreatePacket(br);
+					_receivedPacketQueue.Enqueue((playerConnection, packet));
+					Console.WriteLine($"[UDP] [C({playerConnection}) -> S] {packet}");
+				}
+				catch (Exception e) {
+					Console.WriteLine(e);
+					throw;
+				}
+			}
+		});
+		udpServerThread.Start();
 
 		try {
 			// 서버가 켜진 동안 클라이언트 접속 받기
@@ -187,11 +225,16 @@ public class GameServer : IDisposable {
 	}
 
 	private void HandleClientPingPacket(PlayerConnection playerConnection, ClientPingPacket packet) {
+		// 방 만들기
 		var room = GetAvailableOrCreateRoom();
 
+		// Player ID 할당
 		var playerId = room.GetNewPlayerId();
 		room.AddPlayer(playerConnection, playerId);
 		playerConnection.SendPacket(new ServerAssignPlayerIdPacket(playerId));
+
+		// Client ID 할당
+		playerConnection.ClientId = packet.ClientId;
 	}
 
 	private void HandlePlayerInputPacket(PlayerConnection playerConnection, PlayerInputPacket packet) {

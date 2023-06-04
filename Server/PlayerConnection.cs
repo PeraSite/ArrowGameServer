@@ -14,6 +14,8 @@ public class PlayerConnection : IDisposable {
 	public BinaryWriter Writer { get; }
 	public IPEndPoint IP => (IPEndPoint)Client.Client.RemoteEndPoint!;
 
+	public Guid? ClientId;
+
 	public PlayerConnection(TcpClient client) {
 		Client = client;
 		Stream = Client.GetStream();

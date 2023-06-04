@@ -11,9 +11,10 @@ internal static class Program {
 
 		// 환경변수 가져오기
 		var tcpPort = int.Parse(GetEnvironmentVariable("TCP_PORT"));
+		var udpPort = int.Parse(GetEnvironmentVariable("UDP_PORT"));
 
 		// 서버 시작
-		using GameServer server = new GameServer(tcpPort);
+		using GameServer server = new GameServer(tcpPort, udpPort);
 		server.Start();
 	}
 

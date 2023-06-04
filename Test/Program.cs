@@ -15,7 +15,7 @@ listenThread.Start();
 
 while (true) {
 	Console.ReadLine();
-	var sendPacket = new ClientPingPacket();
+	var sendPacket = new ClientPingPacket(Guid.NewGuid());
 	writer.Write(sendPacket);
 }
 
